@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>敦煌矿物颜料多场耦合退化模拟系统</title>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --panel-bg: #161b22;
+            --border-color: #30363d;
+            --text-main: #c9d1d9;
+            --text-muted: #8b949e;
+            --accent-blue: #58a6ff;
+            --accent-green: #3fb950;
+            --accent-red: #f85149;
+        }
+
+        body {
+            margin: 0;
+            padding: 2vh 5vw;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 96vh;
+            overflow: hidden;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 24px;
+            color: var(--accent-blue);
+            margin: 0 0 5px 0;
+            letter-spacing: 2px;
+        }
+
+        .subtitle {
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        .main-container {
+            display: flex;
+            gap: 20px;
+            flex: 1;
+        }
+
+        /* 左侧控制台 */
+        .control-panel {
+            flex: 1;
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: var(--text-main);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+            margin-bottom: 10px;
+        }
+
+        /* 选项卡样式 */
+        .radio-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .radio-label {
+            display: flex;
+            align-items: center;
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .radio-label:hover { border-color: var(--accent-blue); }
+        .radio-label input { display: none; }
+        .radio-label input:checked + span { color: var(--accent-blue); font-weight: bold; }
+        .radio-label.active { border-color: var(--accent-blue); box-shadow: 0 0 8px rgba(88,166,255,0.2); }
+
+        /* 滑块样式 */
+        .slider-container {
+            margin: 20px 0;
+        }
+        
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+            margin: 15px 0;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 6px; background: #21262d; border-radius: 3px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 20px; width: 20px; border-radius: 50%;
+            background: var(--accent-blue); cursor: pointer; margin-top: -7px;
+        }
+
+        /* 开关样式 */
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .checkbox-label input { margin-right: 10px; accent-color: var(--accent-green); width: 16px; height: 16px;}
+
+        /* 右侧展示区 */
+        .display-panel {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* 环境仪表盘 */
+        .dashboard {
+            display: flex;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 15px;
+            justify-content: space-around;
+        }
+        .metric { text-align: center; }
+        .metric .label { font-size: 12px; color: var(--text-muted); }
+        .metric .value { font-size: 24px; font-weight: bold; font-family: monospace; color: var(--text-main); transition: color 0.3s;}
+        .metric.danger .value { color: var(--accent-red); }
+
+        /* 壁画材质模拟区 */
+        .mural-container {
+            flex: 1;
+            border-radius: 12px;
+            position: relative;
+            overflow: hidden;
+            border: 2px solid var(--border-color);
+            box-shadow: inset 0 0 50px rgba(0,0,0,0.8);
+            transition: background-color 0.3s ease;
+            background-color: rgb(25, 45, 165); /* 默认青金石蓝 */
+        }
+
+        /* 核心：SVG噪声纹理，模拟真实的敦煌泥皮地仗层 */
+        .mural-container::after {
+            content: ""; position: absolute; inset: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.45' style='mix-blend-mode: multiply;'/%3E%3C/svg%3E");
+            pointer-events: none;
+            box-shadow: inset 0 0 40px rgba(0,0,0,0.8);
+        }
+
+        /* 受保护时的发光特效 */
+        .mural-container.protected {
+            border-color: var(--accent-green);
+            box-shadow: 0 0 20px rgba(63, 185, 80, 0.3), inset 0 0 50px rgba(0,0,0,0.8);
+        }
+
+        /* 学术日志输出 */
+        .log-panel {
+            height: 100px;
+            background: #010409;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px 15px;
+            font-family: monospace;
+            font-size: 13px;
+            overflow-y: auto;
+        }
+        .log-entry { margin-bottom: 5px; }
+        .log-time { color: var(--text-muted); margin-right: 10px; }
+        .log-info { color: var(--accent-blue); }
+        .log-warn { color: #d29922; }
+        .log-err { color: var(--accent-red); }
+        .log-succ { color: var(--accent-green); }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>敦煌矿物颜料多场耦合退化模拟系统</h1>
+        <div class="subtitle">不可逆相变动力学与预防性文保实验平台</div>
+    </header>
+
+    <div class="main-container">
+        <div class="control-panel">
+            
+            <div>
+                <div class="section-title">1. 靶向矿物选择</div>
+                <div class="radio-group" id="mineral-group">
+                    <label class="radio-label active"><input type="radio" name="mineral" value="lapis" checked><span>青金石 (群青)</span></label>
+                    <label class="radio-label"><input type="radio" name="mineral" value="azurite"><span>蓝铜矿 (石青)</span></label>
+                    <label class="radio-label"><input type="radio" name="mineral" value="realgar"><span>雄黄 (As₄S₄)</span></label>
+                    <label class="radio-label"><input type="radio" name="mineral" value="hematite"><span>赭石 (对照组)</span></label>
+                </div>
+            </div>
+
+            <div>
+                <div class="section-title">2. 降解路径推演</div>
+                <div class="radio-group" id="path-group">
+                    </div>
+            </div>
+
+            <div class="slider-container">
+                <div class="section-title">3. 时间应力轴 (<span id="year-display">0</span> 年)</div>
+                <input type="range" id="time-slider" min="0" max="1400" value="0">
+                <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted);">
+                    <span>公元 626 (初唐)</span>
+                    <span>公元 2026 (现代)</span>
+                </div>
+            </div>
+
+            <div>
+                <div class="section-title">4. 预防性文保干预 (阻断衰变)</div>
+                <div class="checkbox-group">
+                    <label class="checkbox-label"><input type="checkbox" id="chk-temp-rh"> 恒温恒湿控制 (阻断水合/热解)</label>
+                    <label class="checkbox-label"><input type="checkbox" id="chk-uv"> 紫外线屏蔽屏障 (阻断光解)</label>
+                    <label class="checkbox-label"><input type="checkbox" id="chk-acid"> 微环境气相脱酸 (阻断酸蚀)</label>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="display-panel">
+            
+            <div class="dashboard">
+                <div class="metric" id="metric-ph">
+                    <div class="label">表面 pH 值</div>
+                    <div class="value" id="val-ph">7.0</div>
+                </div>
+                <div class="metric" id="metric-rh">
+                    <div class="label">相对湿度 (RH)</div>
+                    <div class="value" id="val-rh">40%</div>
+                </div>
+                <div class="metric" id="metric-uv">
+                    <div class="label">累积 UV 辐射</div>
+                    <div class="value" id="val-uv">0 J</div>
+                </div>
+                <div class="metric" id="metric-temp">
+                    <div class="label">微环境温度</div>
+                    <div class="value" id="val-temp">20°C</div>
+                </div>
+            </div>
+
+            <div class="mural-container" id="mural-canvas"></div>
+
+            <div class="log-panel" id="terminal-log">
+                <div class="log-entry"><span class="log-time">[System]</span> <span class="log-info">初始化完成。等待输入环境参量...</span></div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // --- 核心数据配置 ---
+        const config = {
+            lapis: {
+                start: [25, 45, 165],
+                paths: [
+                    { id: 'lapis_acid', name: '酸蚀退化 (发色离子逃逸)', end: [200, 210, 225], trigger: 'acid' }
+                ]
+            },
+            azurite: {
+                start: [21, 65, 140],
+                paths: [
+                    { id: 'azurite_water', name: '高湿水合相变 (生成孔雀石绿)', end: [46, 139, 87], trigger: 'rh' },
+                    { id: 'azurite_heat', name: '高温氧化碳化 (生成氧化铜黑)', end: [25, 25, 25], trigger: 'temp' }
+                ]
+            },
+            realgar: {
+                start: [235, 75, 25],
+                paths: [
+                    { id: 'realgar_light', name: '光致相变 (向副雄黄演变发黄)', end: [255, 193, 7], trigger: 'uv' },
+                    { id: 'realgar_tox', name: '光氧毒变 (析出剧毒As₂O₃白霜)', end: [230, 235, 240], trigger: 'uv_rh' }
+                ]
+            },
+            hematite: {
+                start: [140, 45, 40],
+                paths: [
+                    { id: 'hematite_ctrl', name: '全域对照组 (刚性稳定)', end: [140, 45, 40], trigger: 'none' }
+                ]
+            }
+        };
+
+        // --- DOM 元素 ---
+        const mineralRadios = document.querySelectorAll('input[name="mineral"]');
+        const pathGroup = document.getElementById('path-group');
+        const slider = document.getElementById('time-slider');
+        const yearDisplay = document.getElementById('year-display');
+        const muralCanvas = document.getElementById('mural-canvas');
+        const terminal = document.getElementById('terminal-log');
+        
+        // 保护开关
+        const chkTempRh = document.getElementById('chk-temp-rh');
+        const chkUv = document.getElementById('chk-uv');
+        const chkAcid = document.getElementById('chk-acid');
+
+        // 当前状态
+        let currentMineral = 'lapis';
+        let currentPath = 'lapis_acid';
+        let loggedWarning = false;
+
+        // --- 初始化与事件绑定 ---
+        function init() {
+            mineralRadios.forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    // 更新按钮UI
+                    document.querySelectorAll('#mineral-group .radio-label').forEach(lbl => lbl.classList.remove('active'));
+                    e.target.parentElement.classList.add('active');
+                    
+                    currentMineral = e.target.value;
+                    renderPaths();
+                    resetSimulation();
+                });
+            });
+
+            slider.addEventListener('input', updateSimulation);
+            [chkTempRh, chkUv, chkAcid].forEach(chk => {
+                chk.addEventListener('change', updateSimulation);
+            });
+
+            renderPaths();
+            updateSimulation();
+        }
+
+        // 渲染路径选项
+        function renderPaths() {
+            pathGroup.innerHTML = '';
+            config[currentMineral].paths.forEach((path, index) => {
+                const label = document.createElement('label');
+                label.className = `radio-label ${index === 0 ? 'active' : ''}`;
+                label.innerHTML = `<input type="radio" name="path" value="${path.id}" ${index === 0 ? 'checked' : ''}><span>${path.name}</span>`;
+                
+                label.addEventListener('change', (e) => {
+                    document.querySelectorAll('#path-group .radio-label').forEach(lbl => lbl.classList.remove('active'));
+                    label.classList.add('active');
+                    currentPath = e.target.value;
+                    resetSimulation();
+                });
+                pathGroup.appendChild(label);
+            });
+            currentPath = config[currentMineral].paths[0].id;
+        }
+
+        function resetSimulation() {
+            slider.value = 0;
+            loggedWarning = false;
+            updateSimulation();
+        }
+
+        // RGB 插值计算
+        function interpolateColor(c1, c2, factor) {
+            return [
+                Math.round(c1[0] + factor * (c2[0] - c1[0])),
+                Math.round(c1[1] + factor * (c2[1] - c1[1])),
+                Math.round(c1[2] + factor * (c2[2] - c1[2]))
+            ];
+        }
+
+        // 打印学术日志
+        function logMsg(type, msg) {
+            let time = new Date().toLocaleTimeString('en-US', {hour12: false});
+            let cls = type === 'SYS' ? 'log-info' : type === 'WARN' ? 'log-warn' : type === 'ERR' ? 'log-err' : 'log-succ';
+            terminal.innerHTML += `<div class="log-entry"><span class="log-time">[${time}]</span> <span class="${cls}">${msg}</span></div>`;
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        // 核心更新逻辑
+        function updateSimulation() {
+            let years = parseInt(slider.value);
+            let factor = years / 1400.0; // 0.0 到 1.0
+            yearDisplay.innerText = years;
+
+            // 获取当前矿物和路径配置
+            let minData = config[currentMineral];
+            let pathData = minData.paths.find(p => p.id === currentPath);
+
+            // 环境基准值
+            let pH = 7.0, rh = 40, uv = 0, temp = 20;
+            let isProtected = false;
+
+            // 根据路径和保护开关计算物理场应力
+            if (pathData.trigger === 'acid') {
+                if (chkAcid.checked) { isProtected = true; } 
+                else { pH = 7.0 - (factor * 2.5); }
+            } 
+            else if (pathData.trigger === 'rh') {
+                if (chkTempRh.checked) { isProtected = true; }
+                else { rh = 40 + (factor * 50); }
+            }
+            else if (pathData.trigger === 'temp') {
+                if (chkTempRh.checked) { isProtected = true; }
+                else { temp = 20 + (factor * 60); }
+            }
+            else if (pathData.trigger === 'uv') {
+                if (chkUv.checked) { isProtected = true; }
+                else { uv = factor * 10000; }
+            }
+            else if (pathData.trigger === 'uv_rh') {
+                if (chkUv.checked || chkTempRh.checked) { isProtected = true; }
+                else { uv = factor * 10000; rh = 40 + (factor * 50); }
+            }
+            
+            // 对照组特殊处理
+            if (currentMineral === 'hematite') { factor = 0; isProtected = true; }
+
+            // 如果受到保护，强制衰变系数归零
+            let finalFactor = isProtected ? 0 : factor;
+
+            // 更新仪表盘 UI
+            document.getElementById('val-ph').innerText = pH.toFixed(1);
+            document.getElementById('val-rh').innerText = Math.round(rh) + '%';
+            document.getElementById('val-uv').innerText = Math.round(uv) + ' J';
+            document.getElementById('val-temp').innerText = Math.round(temp) + '°C';
+
+            // 仪表盘标红警告
+            document.getElementById('metric-ph').className = `metric ${pH < 5.5 ? 'danger' : ''}`;
+            document.getElementById('metric-rh').className = `metric ${rh > 65 ? 'danger' : ''}`;
+            document.getElementById('metric-temp').className = `metric ${temp > 40 ? 'danger' : ''}`;
+            document.getElementById('metric-uv').className = `metric ${uv > 5000 ? 'danger' : ''}`;
+
+            // 计算并渲染壁画颜色
+            let rgb = interpolateColor(minData.start, pathData.end, finalFactor);
+            muralCanvas.style.backgroundColor = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+            muralCanvas.className = `mural-container ${isProtected && years > 0 ? 'protected' : ''}`;
+
+            // 学术日志记录 (防重复输出)
+            if (factor === 0) loggedWarning = false;
+
+            if (factor > 0.5 && !loggedWarning && !isProtected) {
+                if (currentPath === 'lapis_acid') logMsg('ERR', '酸化退化：硅铝酸盐骨架塌陷，检测到发色离子不可逆逃逸。');
+                if (currentPath === 'azurite_water') logMsg('WARN', '水合相变：亚稳态蓝铜矿夺取水分，向孔雀石晶相转化。');
+                if (currentPath === 'azurite_heat') logMsg('ERR', '热解反应：高温导致蓝铜矿彻底碳化脱水，生成氧化铜。');
+                if (currentPath === 'realgar_light') logMsg('WARN', '光致相变：高能光子轰击，雄黄分子键断裂重组为副雄黄。');
+                if (currentPath === 'realgar_tox') logMsg('ERR', '极高危警报：光氧耦合催化，壁画表面大量析出剧毒三氧化二砷(砒霜)结晶！');
+                loggedWarning = true;
+            }
+
+            if (factor > 0.5 && !loggedWarning && isProtected) {
+                logMsg('SUCC', '微环境工程保护介入有效，热力学熵增被物理隔离，矿物晶格维持原始稳定态。');
+                loggedWarning = true;
+            }
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
