@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>敦煌壁画像素级色彩演变系统</title>
+    <style>
+        body { font-family: 'PingFang SC', sans-serif; background-color: #0f172a; color: white; text-align: center; margin: 0; padding: 20px; }
+        h1 { color: #5eead4; margin-bottom: 5px; }
+        p { color: #94a3b8; font-size: 14px; margin-bottom: 20px; }
+        .control-panel { margin-bottom: 30px; }
+        button { 
+            background-color: #1e293b; color: #5eead4; border: 1px solid #5eead4; 
+            padding: 10px 20px; margin: 0 5px; border-radius: 5px; cursor: pointer; 
+            font-weight: bold; transition: 0.3s;
+        }
+        button:hover, button.active { background-color: #5eead4; color: #0f172a; }
+        .canvas-container { display: flex; justify-content: center; align-items: center; gap: 20px; flex-wrap: wrap; }
+        .image-box { background-color: #1e293b; padding: 15px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        canvas { max-width: 100%; border-radius: 50%; /* 让方形图片变圆 */ border: 4px solid #334155; }
+        .status-text { margin-top: 15px; font-size: 18px; color: #cbd5e1; font-weight: bold; }
+        img { display: none; } /* 隐藏原图，只显示Canvas */
+    </style>
+</head>
+<body>
+
+    <h1>敦煌壁画：多场耦合像素级数字孪生</h1>
+    <p>非线性时间维度推演模型（支持特定朝代微环境模拟）</p>
+
+    <div class="control-panel">
+        <button onclick="setDynasty('tang', 0, this)" class="active">初唐 (公元7世纪) - 初始相态</button>
+        <button onclick="setDynasty('song', 400, this)">宋代 (公元11世纪) - 轻度氧化</button>
+        <button onclick="setDynasty('ming', 900, this)">明清 (公元16世纪) - 深度光氧毒变</button>
+        <button onclick="setDynasty('modern', 1400, this)">现代 (公元21世纪) - 现状</button>
+    </div>
+
+    <div class="canvas-container">
+        <div class="image-box">
+            <h3 style="margin-top: 0; color: #5eead4;">算法演变推演区</h3>
+            <img id="sourceImage" src="deer.jpg" crossorigin="anonymous">
+            <canvas id="renderCanvas" width="500" height="500"></canvas>
+            <div class="status-text" id="status">当前状态：完美复原</div>
+        </div>
+    </div>
+
+<script>
+    const img = document.getElementById('sourceImage');
+    const canvas = document.getElementById('renderCanvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    let originalImageData = null;
+
+    // 当图片加载完成后，画到Canvas上并提取初始像素数据
+    img.onload = function() {
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        // 备份最初始的大唐完美像素数据
+        originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    };
+
+    // 朝代切换函数（非线性时间）
+    function setDynasty(dynasty, years, btnElement) {
+        // 更新按钮样式
+        const btns = document.querySelectorAll('button');
+        btns.forEach(btn => btn.classList.remove('active'));
+        btnElement.classList.add('active');
+
+        // 更新状态文本
+        const statusMap = {
+            'tang': '当前状态：晶格稳定，色彩明艳',
+            'song': '当前状态：铅白轻微变灰，朱砂开始暗沉',
+            'ming': '当前状态：二氧化铅生成，大面积发黑',
+            'modern': '当前状态：不可逆的严重光氧病害'
+        };
+        document.getElementById('status').innerText = statusMap[dynasty];
+
+        // 执行像素级相变算法
+        applyPixelDegradation(years);
+    }
+
+    // 核心算法：读取像素并模拟变色
+    function applyPixelDegradation(years) {
+        if (!originalImageData) return;
+
+        // 重新获取干净的原始数据
+        const imageData = new ImageData(
+            new Uint8ClampedArray(originalImageData.data),
+            originalImageData.width,
+            originalImageData.height
+        );
+        const data = imageData.data;
+
+        // 氧化系数计算
+        const factor = years / 1400; // 最大1400年
+
+        // 遍历所有像素
+        for (let i = 0; i < data.length; i += 4) {
+            let r = data[i];
+            let g = data[i+1];
+            let b = data[i+2];
+
+            // 规则1：识别底色（偏红色），模拟朱砂/铅丹发黑发暗
+            if (r > 150 && g < 130 && b < 130) {
+                data[i] = r - (r * 0.4 * factor);     // 红色大幅降低
+                data[i+1] = g - (g * 0.2 * factor);   // 绿色微降
+                data[i+2] = b - (b * 0.2 * factor);   // 蓝色微降
+            }
+            // 规则2：识别九色鹿身体（偏白色），模拟铅白氧化成二氧化铅（变黑）
+            else if (r > 200 && g > 200 && b > 190) {
+                // 白色发黑是壁画最经典的病害
+                data[i] = r - (r * 0.7 * factor);
+                data[i+1] = g - (g * 0.7 * factor);
+                data[i+2] = b - (b * 0.6 * factor);
+            }
+            // 规则3：识别外圈边框（绿色），模拟铜绿变暗发褐
+            else if (g > r && g > b && g > 100) {
+                data[i] = r + (50 * factor);          // 红光增加（发褐）
+                data[i+1] = g - (g * 0.4 * factor);   // 绿光降低
+                data[i+2] = b - (b * 0.3 * factor);
+            }
+        }
+        
+        // 把算好的病害像素重新画到网页上
+        ctx.putImageData(imageData, 0, 0);
+    }
+</script>
+</body>
+</html>
